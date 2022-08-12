@@ -14,7 +14,7 @@ pipeline {
 	       scannerHome = tool 'SonarQube Scanner'
       }
       steps {
-         withSonarQubeEnv('admin') {
+         withSonarQubeEnv('Sonar') {
             sh "mvn clean verify install sonar:sonar -Dsonar.projectKey=mavenproject \
 		 -Dsonar.java.coveragePlugin=jacoco \
                  -Dsonar.jacoco.reportPaths=target/jacoco.exec \
