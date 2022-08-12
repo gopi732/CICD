@@ -1,42 +1,57 @@
-def mvn
 pipeline {
-  agent { label 'master' }
-    tools {
+  agent any
+  tools {
       maven 'Maven'
       jdk 'JAVA_HOME'
-    }
-  stages {
-   stage ('Maven Build') {
+  }
+  stages { 
+    stage('CleanUp WorkSpace & Git Checkout') {
       steps {
-        script {
-          mvn= tool (name: 'Maven', type: 'maven') + '/bin/mvn'
-        }
-        sh "${mvn} clean install"
+          // Clean before build
+          cleanWs()
+          // We need to explicitly checkout from SCM here
+          checkout scm
       }
     }
-  stage('Build Docker Image'){
-    steps{
-      sh 'docker build -t dileep95/dileep-spring:$BUILD_NUMBER .'
+    stage ("Initialize") {
+      steps {
+          echo "PATH = ${M2_HOME}/bin:${PATH}"
+          echo "M2_HOME = /opt/maven"
+      }
     }
+    stage ("Testing & SonarQube analysis") {
+      environment {
+	       scannerHome = tool 'SonarQube Scanner'
+      }
+      steps {
+         withSonarQubeEnv('admin') {
+            sh "mvn clean verify install sonar:sonar -Dsonar.projectKey=mavenproject \
+		 -Dsonar.java.coveragePlugin=jacoco \
+                 -Dsonar.jacoco.reportPaths=target/jacoco.exec \
+    	         -Dsonar.junit.reportsPaths=target/surefire-reports"
+         }
+      }
+      post {
+         success {
+            archiveArtifacts artifacts: 'target/*.war' 
+         }
+      }
+    }
+    stage('Deploy Atrifacts') {
+	  steps {
+	      rtUpload (
+		 serverId: 'JFrog',
+		 spec: '''{
+ 			"files" :[
+			  {
+		            "pattern": "target/*.war",
+		            "target": "maven/"
+	         	  }
+		        ]
+		 }'''
+	     )
+	 }
+     }	  
   }
-  stage('Docker Container'){
-    steps{
-      withCredentials([usernameColonPassword(credentialsId: 'docker_dileep_creds', variable: 'DOCKER_PASS')]) {
-      sh 'docker push dileep95/dileep-spring:$BUILD_NUMBER'
-	  sh 'docker run -d -p 8050:8050 --name SpringbootApp dileep95/dileep-spring:$BUILD_NUMBER'
-    }
-    }
-  }  
+}
 
-  }
-post {
-    always {
-	mail bcc: '', body: "<br>Project: ${env.JOB_NAME} <br>Build Number: ${env.BUILD_NUMBER} <br>URL: ${env.BUILD_URL}", cc: '', charset: 'UTF-8', from: '', mimeType: 'text/html', replyTo: '', subject: "Success: Project name -> ${env.JOB_NAME}", to: "prithdileep@gmail.com";
-    }
-    failure {
-	sh 'echo "This will run only if failed"'
-      mail bcc: '', body: "<br>Project: ${env.JOB_NAME} <br>Build Number: ${env.BUILD_NUMBER} <br>URL: ${env.BUILD_URL}", cc: '', charset: 'UTF-8', from: '', mimeType: 'text/html', replyTo: '', subject: "ERROR: Project name -> ${env.JOB_NAME}", to: "prithdileep@gmail.com";
-    }
-  }
-}
-}
