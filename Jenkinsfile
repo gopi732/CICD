@@ -1,9 +1,5 @@
 pipeline {
   agent any
-  tools {
-      maven 'Maven'
-      jdk 'JAVA_HOME'
-  }
   stages { 
     stage('CleanUp WorkSpace & Git Checkout') {
       steps {
@@ -11,12 +7,6 @@ pipeline {
           cleanWs()
           // We need to explicitly checkout from SCM here
           checkout scm
-      }
-    }
-    stage ("Initialize") {
-      steps {
-          echo "PATH = ${M2_HOME}/bin:${PATH}"
-          echo "M2_HOME = /opt/maven"
       }
     }
     stage ("Testing & SonarQube analysis") {
